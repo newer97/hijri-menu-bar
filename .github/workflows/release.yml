@@ -12,6 +12,10 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      DEVELOPER_ID_TEAM: XF983AFG67
+      DEVELOPER_ID_NAME: "Developer ID Application"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,28 +25,88 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
+      - name: Import Developer ID certificate into a temporary keychain
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          set -eu
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+
+          echo "$P12_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -P "$P12_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          # Prepend our keychain to the user's search list so xcodebuild finds it.
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"' | xargs)
+
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          rm "$CERT_PATH"
+
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build (ad-hoc signed)
+      - name: Build (Developer ID + hardened runtime)
         run: |
           xcodebuild \
             -project HijriMenuBar.xcodeproj \
             -scheme HijriMenuBar \
             -configuration Release \
             -derivedDataPath build \
-            DEVELOPMENT_TEAM= \
-            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM="$DEVELOPER_ID_TEAM" \
+            CODE_SIGN_IDENTITY="$DEVELOPER_ID_NAME" \
             CODE_SIGN_STYLE=Manual \
-            ENABLE_HARDENED_RUNTIME=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=YES \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
             -quiet build
 
-      - name: Package
+      - name: Stage app for notarization
         run: |
           cp -R build/Build/Products/Release/HijriMenuBar.app .
-          codesign --force --deep --sign - HijriMenuBar.app
+          ditto -c -k --keepParent HijriMenuBar.app HijriMenuBar.zip
+
+      - name: Submit to Apple notary service
+        env:
+          API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
+          API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          set -eu
+          AUTH_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "$API_KEY_BASE64" | base64 --decode > "$AUTH_KEY_PATH"
+
+          xcrun notarytool submit HijriMenuBar.zip \
+            --key "$AUTH_KEY_PATH" \
+            --key-id "$API_KEY_ID" \
+            --issuer "$API_ISSUER_ID" \
+            --wait
+
+          rm "$AUTH_KEY_PATH"
+
+      - name: Staple notarization ticket onto the app
+        run: |
+          xcrun stapler staple HijriMenuBar.app
+          xcrun stapler validate HijriMenuBar.app
+          spctl --assess --type exec --verbose HijriMenuBar.app
+
+      - name: Repackage with stapled ticket
+        run: |
+          rm HijriMenuBar.zip
           ditto -c -k --keepParent HijriMenuBar.app HijriMenuBar.zip
           ls -la HijriMenuBar.zip
 
@@ -51,7 +115,7 @@ jobs:
         with:
           name: HijriMenuBar
           path: HijriMenuBar.zip
-          retention-days: 14
+          retention-days: 30
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -63,7 +127,9 @@ jobs:
             ## Install
 
             1. Download `HijriMenuBar.zip`, unzip, and drag `HijriMenuBar.app` into `/Applications`.
-            2. Right-click the app → **Open** the first time (Gatekeeper warns once because the build is not notarized).
+            2. Double-click to launch — the build is **signed and notarized**, so Gatekeeper opens it without warnings.
             3. The Hijri date appears in your menu bar — click it for the calendar.
 
-            **Widgets:** Release builds are ad-hoc signed, which is enough for the menu bar app but not for app extensions. To use the home-screen widgets, build from source — see the README.
+            ### Add the widgets
+
+            After launching once, right-click your Desktop → **Edit Widgets**, find **Hijri Menu Bar** in the sidebar, and drag any size of the **Hijri Date** or **Prayer Times** widget onto the desktop.
