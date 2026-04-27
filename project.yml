@@ -1,0 +1,67 @@
+name: HijriMenuBar
+
+options:
+  bundleIdPrefix: dev.naserawaji
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "Developer ID Application"
+    DEVELOPMENT_TEAM: L82KG9J6DW
+    ENABLE_HARDENED_RUNTIME: YES
+    GENERATE_INFOPLIST_FILE: NO
+    OTHER_CODE_SIGN_FLAGS: "--timestamp=none"
+
+targets:
+  HijriMenuBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/HijriMenuBar
+      - path: Sources/HijriShared
+    info:
+      path: Resources/HijriMenuBar-Info.plist
+      properties:
+        CFBundleDisplayName: Hijri Menu Bar
+        CFBundleShortVersionString: "1.0.7"
+        CFBundleVersion: "8"
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.0"
+        NSHighResolutionCapable: true
+        NSPrincipalClass: NSApplication
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.naserawaji.HijriMenuBar
+        PRODUCT_NAME: HijriMenuBar
+        CODE_SIGN_ENTITLEMENTS: Resources/HijriMenuBar.entitlements
+    dependencies:
+      - target: HijriWidget
+        embed: true
+        codeSign: true
+
+  HijriWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Sources/HijriWidget
+      - path: Sources/HijriShared
+    info:
+      path: Resources/HijriWidget-Info.plist
+      properties:
+        CFBundleDisplayName: Hijri Widget
+        CFBundleShortVersionString: "1.0.7"
+        CFBundleVersion: "8"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.naserawaji.HijriMenuBar.HijriWidget
+        PRODUCT_NAME: HijriWidget
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: Resources/HijriWidget.entitlements

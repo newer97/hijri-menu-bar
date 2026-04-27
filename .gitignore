@@ -1,0 +1,15 @@
+.build/
+.swiftpm/
+*.xcodeproj/
+HijriMenuBar.app/
+DerivedData/
+build/
+Resources/HijriMenuBar-Info.plist
+Resources/HijriWidget-Info.plist
+
+# macOS noise
+.DS_Store
+
+# Local notes / scratch
+*.local.json
+api-sample.json

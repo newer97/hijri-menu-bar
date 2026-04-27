@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (ad-hoc signed)
+        run: |
+          xcodebuild \
+            -project HijriMenuBar.xcodeproj \
+            -scheme HijriMenuBar \
+            -configuration Release \
+            -derivedDataPath build \
+            DEVELOPMENT_TEAM= \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            ENABLE_HARDENED_RUNTIME=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            -quiet build
+
+      - name: Package
+        run: |
+          cp -R build/Build/Products/Release/HijriMenuBar.app .
+          codesign --force --deep --sign - HijriMenuBar.app
+          ditto -c -k --keepParent HijriMenuBar.app HijriMenuBar.zip
+          ls -la HijriMenuBar.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HijriMenuBar
+          path: HijriMenuBar.zip
+          retention-days: 14
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: HijriMenuBar.zip
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            1. Download `HijriMenuBar.zip`, unzip, and drag `HijriMenuBar.app` into `/Applications`.
+            2. Right-click the app → **Open** the first time (Gatekeeper warns once because the build is not notarized).
+            3. The Hijri date appears in your menu bar — click it for the calendar.
+
+            **Widgets:** Release builds are ad-hoc signed, which is enough for the menu bar app but not for app extensions. To use the home-screen widgets, build from source — see the README.
