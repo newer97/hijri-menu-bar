@@ -86,15 +86,32 @@ jobs:
           API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
           API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
         run: |
-          set -eu
+          set -u
           AUTH_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           echo "$API_KEY_BASE64" | base64 --decode > "$AUTH_KEY_PATH"
 
+          # Submit and capture JSON so we can introspect status / fetch logs.
           xcrun notarytool submit HijriMenuBar.zip \
             --key "$AUTH_KEY_PATH" \
             --key-id "$API_KEY_ID" \
             --issuer "$API_ISSUER_ID" \
-            --wait
+            --wait \
+            --output-format json | tee submission.json
+          STATUS=$(/usr/bin/plutil -extract status raw -o - -- submission.json 2>/dev/null || echo "")
+          SUBMISSION_ID=$(/usr/bin/plutil -extract id raw -o - -- submission.json 2>/dev/null || echo "")
+
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::Notarization failed with status: $STATUS"
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "Fetching detailed log for submission $SUBMISSION_ID…"
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key "$AUTH_KEY_PATH" \
+                --key-id "$API_KEY_ID" \
+                --issuer "$API_ISSUER_ID" || true
+            fi
+            rm -f "$AUTH_KEY_PATH"
+            exit 1
+          fi
 
           rm "$AUTH_KEY_PATH"
 
