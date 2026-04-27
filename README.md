@@ -3,14 +3,13 @@
 Native macOS menu bar app and home-screen widgets for the Hijri (Umm al-Qura) calendar, with optional prayer-times widgets for Saudi Arabia.
 
 <p align="center">
+  <img src="docs/popover.jpg" alt="Calendar popover with menu bar" width="700" />
+</p>
+<p align="center">
   <img src="docs/widgets-medium.png" alt="Medium-size widgets — prayer times for Makkah and the Hijri date" width="800" />
 </p>
 <p align="center">
   <img src="docs/widgets-large.png" alt="Large-size widgets — multi-city prayer table and Hijri month grid" width="800" />
-</p>
-<p align="center">
-  <em>Calendar popover — screenshot coming soon.</em>
-  <!-- <img src="docs/popover.png" alt="Calendar popover" width="600" /> -->
 </p>
 
 ## Features
