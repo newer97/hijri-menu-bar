@@ -81,6 +81,7 @@ jobs:
           ditto -c -k --keepParent HijriMenuBar.app HijriMenuBar.zip
 
       - name: Submit to Apple notary service
+        timeout-minutes: 30
         env:
           API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
           API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
