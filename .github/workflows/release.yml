@@ -1,9 +1,9 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # Manual trigger only. Day-to-day releases are cut locally with ./release.sh,
+  # which avoids depending on the hosted runner reaching Apple's notary service.
+  # Re-enable the tag trigger if you want CI-driven releases again.
   workflow_dispatch:
 
 jobs:
